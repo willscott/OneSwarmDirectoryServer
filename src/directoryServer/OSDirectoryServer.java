@@ -20,8 +20,6 @@ import org.mortbay.thread.QueuedThreadPool;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
-import edu.washington.cs.oneswarm.f2f.servicesharing.XML;
-
 /**
  * Directory Server This class maintains a Database of ExitNodeInfo and serves
  * it to OneSwarm instances that need

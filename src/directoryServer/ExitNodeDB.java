@@ -19,8 +19,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.SAXException;
 
-import edu.washington.cs.oneswarm.f2f.servicesharing.XML;
-
 public class ExitNodeDB {
     private static final String DATABASE_FILE = "/home/nick/knownExitNodes.xml";
     // The max age that a ExitNode registration may have befire it is deleted.

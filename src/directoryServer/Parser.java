@@ -18,8 +18,6 @@ import org.xml.sax.helpers.DefaultHandler;
 import com.sun.org.apache.xml.internal.security.exceptions.Base64DecodingException;
 import com.sun.org.apache.xml.internal.security.utils.Base64;
 
-import edu.washington.cs.oneswarm.f2f.servicesharing.XML;
-
 public class Parser {
     private ExitNodeRecord tempNode;
     private String tempVal;
