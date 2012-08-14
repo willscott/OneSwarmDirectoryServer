@@ -4,6 +4,10 @@ import java.io.UnsupportedEncodingException;
 import java.security.PublicKey;
 import java.security.Signature;
 
+import org.mortbay.util.Utf8StringBuffer;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+
 import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
 
 public class ExitNodeRecord implements Comparable<ExitNodeRecord> {
@@ -119,10 +123,30 @@ public class ExitNodeRecord implements Comparable<ExitNodeRecord> {
             }
         };
     }
+    
+    private void addKey(ContentHandler hd, String key, String value) throws SAXException {
+    	hd.startElement("", "", key, null);
+    	char[] valArray = value.toCharArray();
+    	hd.characters(valArray, 0, valArray.length);
+    	hd.endElement("", "", key);
+    }
 
-    public String fullXML() {
-        // TODO (willscott) XML with same info as ExitNodeInfo
-        return "TODO";
+    public void fullXML(ContentHandler hd) throws SAXException {
+    	hd.startElement("", "", XMLConstants.EXIT_NODE, null);
+    	addKey(hd, XMLConstants.SERVICE_ID, Long.toString(this.serviceId));
+    	addKey(hd, XMLConstants.PUBLIC_KEY, this.publicKey);
+    	addKey(hd, XMLConstants.NICKNAME, this.nickname);
+    	addKey(hd, XMLConstants.BANDWIDTH, "" + this.bandwidth);
+    	addKey(hd, XMLConstants.EXIT_POLICY, this.exitPolicy);
+    	addKey(hd, XMLConstants.VERSION, this.version);
+    	hd.startElement("", "", XMLConstants.SIGNATURE, null);
+    	Utf8StringBuffer usb = new Utf8StringBuffer();
+    	usb.append(this.signature, 0, this.signature.length);
+    	char[] sig = usb.toString().toCharArray();
+    	hd.characters(sig, 0, sig.length);
+    	hd.endElement("", "", XMLConstants.SIGNATURE);
+
+    	hd.endElement("", "", XMLConstants.EXIT_NODE);
     }
 
     @Override

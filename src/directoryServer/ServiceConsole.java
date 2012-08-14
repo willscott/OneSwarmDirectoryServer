@@ -2,12 +2,18 @@ package directoryServer;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
 
 import javax.xml.parsers.ParserConfigurationException;
+
+import org.apache.xerces.util.XMLStringBuffer;
+import org.apache.xml.serialize.OutputFormat;
+import org.apache.xml.serialize.XMLSerializer;
+import org.xml.sax.ContentHandler;
 
 class ServiceConsole implements Runnable {
     private static final String PROMPT = ">>> ";
@@ -44,7 +50,18 @@ class ServiceConsole implements Runnable {
         commands.put("print", new ServiceCommand() {
             @Override
             void perform(String[] args) {
-                System.out.println(db.getUpdatesSince(0l));
+            	try {
+            		OutputFormat of = new OutputFormat();
+            		StringWriter sw = new StringWriter();
+            		XMLSerializer serializer = new XMLSerializer(sw, of);
+            		ContentHandler hd = serializer.asContentHandler();
+            		hd.startDocument();
+            		db.getUpdatesSince(0l, hd);
+            		hd.endDocument();
+            		System.out.println(sw.toString());
+            	} catch(Exception e) {
+            		e.printStackTrace();
+            	}
             }
 
             @Override

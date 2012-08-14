@@ -94,30 +94,34 @@ public class OSDirectoryServer implements Runnable {
             of.setIndenting(true);
             XMLSerializer serializer = new XMLSerializer(resp.getOutputStream(), of);
             ContentHandler hd = serializer.asContentHandler();
-            hd.startDocument();
+            try {
+            	hd.startDocument();
 
-            // Check for the action parameter and do action
-            if (parameters.containsKey(PARAM_ACTION)) {
-                String action = parameters.get(PARAM_ACTION);
-                if (action.equals(CHECK_IN)) {
-                    handleRegisterAction(true, request.getInputStream(), hd);
-                } else if (action.equals(REGISTER)) {
-                    handleRegisterAction(false, request.getInputStream(), hd);
-                } else if (action.equals(LIST_NODES)) {
-                    long lastUpdate = parameters.containsKey(LAST_UPDATE) ? Long
-                            .parseLong(parameters.get(LAST_UPDATE)) : 0l;
-                    response = db.getUpdatesSince(lastUpdate);
-                } else {
-                    hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
-                    char[] message = "Invalid Operation".toCharArray();
-                    hd.characters(message, 0, message.length);
-                    hd.endElement("", "", XMLConstants.GENERAL_ERROR);
-                }
-                hd.endDocument();
-
-                request.setHandled(true);
-                resp.getOutputStream().flush();
-            }
+            	// Check for the action parameter and do action
+            	if (parameters.containsKey(PARAM_ACTION)) {
+            		String action = parameters.get(PARAM_ACTION);
+            		if (action.equals(CHECK_IN)) {
+            			handleRegisterAction(true, request.getInputStream(), hd);
+            		} else if (action.equals(REGISTER)) {
+            			handleRegisterAction(false, request.getInputStream(), hd);
+            		} else if (action.equals(LIST_NODES)) {
+            			long lastUpdate = parameters.containsKey(LAST_UPDATE) ? Long
+            					.parseLong(parameters.get(LAST_UPDATE)) : 0l;
+            					db.getUpdatesSince(lastUpdate, hd);
+            		} else {
+            			hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
+            			char[] message = "Invalid Operation".toCharArray();
+            			hd.characters(message, 0, message.length);
+            			hd.endElement("", "", XMLConstants.GENERAL_ERROR);
+            		}
+            		hd.endDocument();
+            		request.setHandled(true);
+            		resp.getOutputStream().flush();
+            	}
+        	}
+        	catch (SAXException e) {
+        		request.setHandled(false);
+        	}
         }
 
         private void handleRegisterAction(boolean justCheckIn, InputStream xml, ContentHandler hd)

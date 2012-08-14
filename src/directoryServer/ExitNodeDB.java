@@ -18,6 +18,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.xml.serialize.OutputFormat;
 import org.apache.xml.serialize.XMLSerializer;
+import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
 public class ExitNodeDB {
@@ -118,26 +119,36 @@ public class ExitNodeDB {
         saveToFile(new File(DATABASE_FILE));
     }
 
-    public StringBuilder getUpdatesSince(long lastUpdateTime) {
-        StringBuilder sb = new StringBuilder();
+    public void getUpdatesSince(long lastUpdateTime, ContentHandler hd) {
         for (ExitNodeRecord node : readableExitNodeList) {
             if (node.createdTime > lastUpdateTime) {
-                sb.append(node.fullXML());
+            	try {
+            		node.fullXML(hd);
+            	} catch(Exception e) {
+            		continue;
+            	}
             } else {
                 break;
             }
         }
-        return sb;
     }
 
     private void saveToFile(File file) {
         try {
-            OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(file), "UTF8");
-            // TODO (willscott) XML done properly (Comments left in place to see
-            // what was done here)
-            out.write(/* XML.HEADER + XML.tag(XML.EXIT_NODE_LIST, */getUpdatesSince(0).toString()/* ) */);
-            out.close();
-        } catch (IOException e) {
+        	FileOutputStream fos = new FileOutputStream(file);
+            OutputFormat of = new OutputFormat("XML", "ISO-8859-1", true);
+            of.setIndent(1);
+            of.setIndenting(true);
+            XMLSerializer serializer = new XMLSerializer(fos, of);
+            ContentHandler hd = serializer.asContentHandler();
+            hd.startDocument();
+            hd.startElement("", "", XMLConstants.EXIT_NODE_LIST, null);
+            getUpdatesSince(0, hd);
+            hd.endElement("", "", XMLConstants.EXIT_NODE_LIST);
+            hd.endDocument();
+            fos.flush();
+            fos.close();
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
