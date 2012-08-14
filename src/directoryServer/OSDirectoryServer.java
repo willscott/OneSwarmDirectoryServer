@@ -11,12 +11,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.apache.xml.serialize.OutputFormat;
+import org.apache.xml.serialize.XMLSerializer;
 import org.mortbay.jetty.HttpConnection;
 import org.mortbay.jetty.Request;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.AbstractHandler;
 import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.thread.QueuedThreadPool;
+import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
@@ -86,31 +89,39 @@ public class OSDirectoryServer implements Runnable {
                 }
             }
 
-            StringBuilder response = new StringBuilder();
+            OutputFormat of = new OutputFormat("XML","ISO-8859-1",true);
+            of.setIndent(1);
+            of.setIndenting(true);
+            XMLSerializer serializer = new XMLSerializer(resp.getOutputStream(), of);
+            ContentHandler hd = serializer.asContentHandler();
+            hd.startDocument();
 
             // Check for the action parameter and do action
             if (parameters.containsKey(PARAM_ACTION)) {
                 String action = parameters.get(PARAM_ACTION);
                 if (action.equals(CHECK_IN)) {
-                    handleRegisterAction(true, request.getInputStream(), response);
+                    handleRegisterAction(true, request.getInputStream(), hd);
                 } else if (action.equals(REGISTER)) {
-                    handleRegisterAction(false, request.getInputStream(), response);
+                    handleRegisterAction(false, request.getInputStream(), hd);
                 } else if (action.equals(LIST_NODES)) {
                     long lastUpdate = parameters.containsKey(LAST_UPDATE) ? Long
                             .parseLong(parameters.get(LAST_UPDATE)) : 0l;
                     response = db.getUpdatesSince(lastUpdate);
                 } else {
-                    response = XML.tag(XML.GENERAL_ERROR, "Invalid Operation");
+                	hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
+                	char[] message = "Invalid Operation".toCharArray();
+                	hd.characters(message, 0, message.length);
+                	hd.endElement("", "", XMLConstants.GENERAL_ERROR);
                 }
+                hd.endDocument();
 
                 request.setHandled(true);
-                response = XML.tag(XML.EXIT_NODE_LIST, response).insert(0, XML.HEADER);
-                resp.getOutputStream().write(response.toString().getBytes(XML.ENCODING));
+                resp.getOutputStream().flush();
             }
         }
 
         private void handleRegisterAction(boolean justCheckIn, InputStream xml,
-                StringBuilder response) {
+                ContentHandler hd) throws SAXException {
             try {
                 List<ExitNodeRecord> newNodes = new Parser(xml).parseAsExitNodeList();
                 for (ExitNodeRecord node : newNodes) {
@@ -125,9 +136,16 @@ public class OSDirectoryServer implements Runnable {
                         e.printStackTrace();
                         // These are our checks for correctness such
                         // as "Duplicate Key Used"
-                        response.append(XML.tag(XML.EXIT_NODE,
-                                XML.tag(XML.SERVICE_ID, "" + node.getId()),
-                                XML.tag(XML.NODE_ERROR, e.getMessage())));
+                        hd.startElement("", "", XMLConstants.EXIT_NODE, null);
+                        hd.startElement("", "", XMLConstants.SERVICE_ID, null);
+                        char[] msg = ("" + node.getId()).toCharArray();
+                        hd.characters(msg, 0, msg.length);
+                        hd.endElement("", "", XMLConstants.SERVICE_ID);
+                        hd.startElement("", "", XMLConstants.NODE_ERROR, null);
+                        msg = e.getMessage().toCharArray();
+                        hd.characters(msg, 0, msg.length);
+                        hd.endElement("", "", XMLConstants.NODE_ERROR);
+                        hd.endElement("", "", XMLConstants.EXIT_NODE);
                     }
                 }
                 db.saveEdits();
@@ -136,11 +154,16 @@ public class OSDirectoryServer implements Runnable {
                 e.printStackTrace();
                 // These are XML errors such as
                 // "Unexpected End of File"
-                response = XML.tag(XML.GENERAL_ERROR, "Error on line " + e.getLineNumber()
-                        + ", column " + e.getColumnNumber() + ": " + e.getMessage());
+                hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
+                char[] msg = ("Error on line " + e.getLineNumber() + ", column " + e.getColumnNumber() + ": " + e.getMessage()).toCharArray();
+                hd.characters(msg, 0, msg.length);
+                hd.endElement("", "", XMLConstants.GENERAL_ERROR);
             } catch (Exception e) {
                 e.printStackTrace();
-                response = XML.tag(XML.GENERAL_ERROR, e.getMessage());
+                hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
+                char[] msg = e.getMessage().toCharArray();
+                hd.characters(msg, 0, msg.length);
+                hd.endElement("", "", XMLConstants.GENERAL_ERROR);
             }
         }
     }

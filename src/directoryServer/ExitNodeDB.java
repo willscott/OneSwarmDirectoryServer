@@ -43,7 +43,6 @@ public class ExitNodeDB {
                 OutputFormat of = new OutputFormat("XML","ISO-8859-1",true);
                 of.setIndent(1);
                 of.setIndenting(true);
-                of.setDoctype(null,"users.dtd");
                 FileOutputStream fos = new FileOutputStream(dbFile);
                 XMLSerializer serializer = new XMLSerializer(fos, of);
                 org.xml.sax.ContentHandler hd = serializer.asContentHandler();

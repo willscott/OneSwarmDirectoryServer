@@ -67,7 +67,6 @@ public class ExitNodeRecord extends ExitNodeInfo {
                     sig.update(this.hashBase());
                     if (!sig.verify(signature)) {
                         errors += "\tSignature Verification Failed\n";
-                        // TODO (nick) remove println
                         errors += this.fullXML() + "\n";
                     }
                 } catch (Exception e) {
