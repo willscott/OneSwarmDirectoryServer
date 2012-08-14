@@ -4,10 +4,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.net.ContentHandler;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -18,10 +16,8 @@ import java.util.TimerTask;
 
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.apache.xerces.dom.DocumentImpl;
 import org.apache.xml.serialize.OutputFormat;
 import org.apache.xml.serialize.XMLSerializer;
-import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 public class ExitNodeDB {
@@ -40,7 +36,7 @@ public class ExitNodeDB {
             File dbFile = new File(DATABASE_FILE);
             if (!dbFile.exists()) {
                 dbFile.createNewFile();
-                OutputFormat of = new OutputFormat("XML","ISO-8859-1",true);
+                OutputFormat of = new OutputFormat("XML", "ISO-8859-1", true);
                 of.setIndent(1);
                 of.setIndenting(true);
                 FileOutputStream fos = new FileOutputStream(dbFile);
@@ -69,14 +65,14 @@ public class ExitNodeDB {
         }
 
         synchronized (registeredKeys) {
-            if (registeredKeys.containsKey(node.getId())) {
-                ExitNodeRecord oldNode = registeredKeys.get(node.getId());
-                if (!oldNode.getPublicKey().equals(node.getPublicKey())) {
+            if (registeredKeys.containsKey(node.serviceId)) {
+                ExitNodeRecord oldNode = registeredKeys.get(node.serviceId);
+                if (!oldNode.publicKey.equals(node.publicKey)) {
                     throw new IllegalArgumentException("Duplicate Key Used.");
                 }
                 remove(oldNode);
             }
-            registeredKeys.put(node.getId(), node);
+            registeredKeys.put(node.serviceId, node);
         }
 
         synchronized (mutableExitNodeList) {
@@ -89,7 +85,7 @@ public class ExitNodeDB {
             mutableExitNodeList.remove(node);
         }
         synchronized (registeredKeys) {
-            registeredKeys.remove(node.getId());
+            registeredKeys.remove(node.serviceId);
         }
     }
 
@@ -99,13 +95,12 @@ public class ExitNodeDB {
             throw new IllegalArgumentException(errors);
         }
 
-        if (!registeredKeys.containsKey(node.getId())) {
+        if (!registeredKeys.containsKey(node.serviceId)) {
             throw new IllegalArgumentException("Service ID is not registered.");
         }
-        ExitNodeRecord oldNode = registeredKeys.get(node.getId());
-        if (node.signature.equals(oldNode.signature)
-                && oldNode.getPublicKey().equals(node.getPublicKey())) {
-            registeredKeys.get(node.getId()).checkIn();
+        ExitNodeRecord oldNode = registeredKeys.get(node.serviceId);
+        if (node.signature.equals(oldNode.signature) && oldNode.publicKey.equals(node.publicKey)) {
+            registeredKeys.get(node.serviceId).checkIn();
         } else {
             throw new IllegalArgumentException(
                     "Public Key or Signature does not match existing registration.");
@@ -138,7 +133,9 @@ public class ExitNodeDB {
     private void saveToFile(File file) {
         try {
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(file), "UTF8");
-            out.write(XML.HEADER + XML.tag(XML.EXIT_NODE_LIST, getUpdatesSince(0)));
+            // TODO (willscott) XML done properly (Comments left in place to see
+            // what was done here)
+            out.write(/* XML.HEADER + XML.tag(XML.EXIT_NODE_LIST, */getUpdatesSince(0).toString()/* ) */);
             out.close();
         } catch (IOException e) {
             e.printStackTrace();

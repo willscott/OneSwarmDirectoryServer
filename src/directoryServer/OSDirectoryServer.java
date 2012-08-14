@@ -89,7 +89,7 @@ public class OSDirectoryServer implements Runnable {
                 }
             }
 
-            OutputFormat of = new OutputFormat("XML","ISO-8859-1",true);
+            OutputFormat of = new OutputFormat("XML", "ISO-8859-1", true);
             of.setIndent(1);
             of.setIndenting(true);
             XMLSerializer serializer = new XMLSerializer(resp.getOutputStream(), of);
@@ -108,10 +108,10 @@ public class OSDirectoryServer implements Runnable {
                             .parseLong(parameters.get(LAST_UPDATE)) : 0l;
                     response = db.getUpdatesSince(lastUpdate);
                 } else {
-                	hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
-                	char[] message = "Invalid Operation".toCharArray();
-                	hd.characters(message, 0, message.length);
-                	hd.endElement("", "", XMLConstants.GENERAL_ERROR);
+                    hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
+                    char[] message = "Invalid Operation".toCharArray();
+                    hd.characters(message, 0, message.length);
+                    hd.endElement("", "", XMLConstants.GENERAL_ERROR);
                 }
                 hd.endDocument();
 
@@ -120,8 +120,8 @@ public class OSDirectoryServer implements Runnable {
             }
         }
 
-        private void handleRegisterAction(boolean justCheckIn, InputStream xml,
-                ContentHandler hd) throws SAXException {
+        private void handleRegisterAction(boolean justCheckIn, InputStream xml, ContentHandler hd)
+                throws SAXException {
             try {
                 List<ExitNodeRecord> newNodes = new Parser(xml).parseAsExitNodeList();
                 for (ExitNodeRecord node : newNodes) {
@@ -138,7 +138,7 @@ public class OSDirectoryServer implements Runnable {
                         // as "Duplicate Key Used"
                         hd.startElement("", "", XMLConstants.EXIT_NODE, null);
                         hd.startElement("", "", XMLConstants.SERVICE_ID, null);
-                        char[] msg = ("" + node.getId()).toCharArray();
+                        char[] msg = ("" + node.serviceId).toCharArray();
                         hd.characters(msg, 0, msg.length);
                         hd.endElement("", "", XMLConstants.SERVICE_ID);
                         hd.startElement("", "", XMLConstants.NODE_ERROR, null);
@@ -155,7 +155,8 @@ public class OSDirectoryServer implements Runnable {
                 // These are XML errors such as
                 // "Unexpected End of File"
                 hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
-                char[] msg = ("Error on line " + e.getLineNumber() + ", column " + e.getColumnNumber() + ": " + e.getMessage()).toCharArray();
+                char[] msg = ("Error on line " + e.getLineNumber() + ", column "
+                        + e.getColumnNumber() + ": " + e.getMessage()).toCharArray();
                 hd.characters(msg, 0, msg.length);
                 hd.endElement("", "", XMLConstants.GENERAL_ERROR);
             } catch (Exception e) {

@@ -76,17 +76,17 @@ public class Parser {
             if (qName.equalsIgnoreCase(XMLConstants.EXIT_NODE)) {
                 exitNodes.add(tempNode);
             } else if (qName.equalsIgnoreCase(XMLConstants.SERVICE_ID)) {
-                tempNode.setId(Long.parseLong(tempVal));
+                tempNode.serviceId = Long.parseLong(tempVal);
             } else if (qName.equalsIgnoreCase(XMLConstants.PUBLIC_KEY)) {
-                tempNode.setPublicKey(tempVal);
+                tempNode.publicKey = tempVal;
             } else if (qName.equalsIgnoreCase(XMLConstants.NICKNAME)) {
-                tempNode.setNickname(tempVal);
+                tempNode.nickname = tempVal;
             } else if (qName.equalsIgnoreCase(XMLConstants.BANDWIDTH)) {
-                tempNode.setAdvertizedBandwidth(Integer.parseInt(tempVal));
+                tempNode.bandwidth = Integer.parseInt(tempVal);
             } else if (qName.equalsIgnoreCase(XMLConstants.EXIT_POLICY)) {
-                tempNode.setExitPolicy(tempVal.split(","));
+                tempNode.exitPolicy = tempVal;
             } else if (qName.equalsIgnoreCase(XMLConstants.VERSION)) {
-                tempNode.setVersion(tempVal);
+                tempNode.version = tempVal;
             } else if (qName.equalsIgnoreCase(XMLConstants.SIGNATURE)) {
                 try {
                     tempNode.signature = Base64.decode(tempVal);

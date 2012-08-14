@@ -1,10 +1,12 @@
 package directoryServer;
 
+import java.io.UnsupportedEncodingException;
+import java.security.PublicKey;
 import java.security.Signature;
 
-import edu.washington.cs.oneswarm.f2f.servicesharing.ExitNodeInfo;
+import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
 
-public class ExitNodeRecord extends ExitNodeInfo {
+public class ExitNodeRecord implements Comparable<ExitNodeRecord> {
     // Verification Constants
     // TODO (nick) find correct consts
     private static final int PUB_KEY_LENGTH = 162; // length of Key.getEncoded()
@@ -12,8 +14,13 @@ public class ExitNodeRecord extends ExitNodeInfo {
     private static final int MIN_NICKNAME_LENGTH = 3;
 
     long createdTime; // As provided by System.currentTimeMillis();
-    long lastCheckinTime; // Essentially a Keep Alive
-    public String policy;
+    long lastCheckinTime; // Essentially a Keep Alivelong serviceId;
+    long serviceId;
+    String publicKey;
+    String nickname;
+    int bandwidth;
+    String version;
+    public String exitPolicy;
     public byte[] signature;
 
     public ExitNodeRecord() {
@@ -32,29 +39,25 @@ public class ExitNodeRecord extends ExitNodeInfo {
             errors += "\tBroken Timestamp. Created at " + createdTime + " Last check-in "
                     + lastCheckinTime + "\n";
         }
-        if (this.getId() == 0) {
+        if (serviceId == 0) {
             errors += "\tInvalid Service ID\n";
         }
-        if (this.getPublicKey() == null || this.getPublicKey().getAlgorithm() == "RSA"
-                || this.getPublicKey().getFormat() == "PKCS#8"
-                || this.getPublicKey().getEncoded().length != PUB_KEY_LENGTH) {
+        PublicKey pubKey = decodeKeyString(publicKey);
+        if (pubKey == null || pubKey.getAlgorithm() == "RSA" || pubKey.getFormat() == "PKCS#8"
+                || pubKey.getEncoded().length != PUB_KEY_LENGTH) {
             errors += "\tInvalid RSA Public Key\n";
         }
         if (fullCheckInclSignature) {
-            if (this.getNickname() == null || this.getNickname().length() < MIN_NICKNAME_LENGTH) {
+            if (nickname == null || nickname.length() < MIN_NICKNAME_LENGTH) {
                 errors += "\tInvalid Nickname. Must be 3 or more characters\n";
             }
-            if (this.getAdvertizedBandwith() == 0) {
+            if (bandwidth == 0) {
                 errors += "\tInvalid Advertized Bandwidth\n";
             }
-            String exitPolicy = this.getExitPolicy();
             if (exitPolicy == null || exitPolicy.length() == 0) {
                 errors += "\tInvalid Exit Policy\n";
             }
-            if (this.getOnlineSinceDate() == null) {
-                errors += "\tInvalid Online Since date\n";
-            }
-            if (this.getVersion() == null || this.getVersion().length() == 0) {
+            if (version == null || version.length() == 0) {
                 errors += "\tInvalid Version String\n";
             }
             if (signature == null || signature.length != SIG_LENGTH) {
@@ -63,11 +66,10 @@ public class ExitNodeRecord extends ExitNodeInfo {
             if (errors.equals("")) {
                 try {
                     Signature sig = Signature.getInstance("SHA1withRSA");
-                    sig.initVerify(this.getPublicKey());
-                    sig.update(this.hashBase());
+                    sig.initVerify(pubKey);
+                    sig.update(hashBase());
                     if (!sig.verify(signature)) {
                         errors += "\tSignature Verification Failed\n";
-                        errors += this.fullXML() + "\n";
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -77,15 +79,58 @@ public class ExitNodeRecord extends ExitNodeInfo {
         return errors;
     }
 
-    @Override
-    public int compareTo(ExitNodeInfo other) {
-        if (!(other instanceof ExitNodeRecord)) {
-            throw new IllegalArgumentException("Cannot be compared to an ExitNodeInfo");
+    private byte[] hashBase() {
+        try {
+            return (publicKey + this.nickname + bandwidth + this.exitPolicy.toString() + this.version)
+                    .getBytes(XMLConstants.ENCODING);
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
         }
-        if (this.createdTime > ((ExitNodeRecord) other).createdTime) {
+        return null;
+    }
+
+    /**
+     * Decodes the String format of a key. See getPublicKeyString for format.
+     * 
+     * @param key
+     * @return
+     */
+    private PublicKey decodeKeyString(String key) {
+        if (key == null || key.length() < 1) {
+            return null;
+        }
+        final String[] parts = key.split(":");
+        return new PublicKey() {
+            private static final long serialVersionUID = 4008509182035615274L;
+
+            @Override
+            public String getAlgorithm() {
+                return parts[0];
+            }
+
+            @Override
+            public String getFormat() {
+                return parts[1];
+            }
+
+            @Override
+            public byte[] getEncoded() {
+                return Base64.decode(parts[2]);
+            }
+        };
+    }
+
+    public String fullXML() {
+        // TODO (willscott) XML with same info as ExitNodeInfo
+        return "TODO";
+    }
+
+    @Override
+    public int compareTo(ExitNodeRecord other) {
+        if (this.createdTime > other.createdTime) {
             return -1;
         }
-        if (this.createdTime == ((ExitNodeRecord) other).createdTime) {
+        if (this.createdTime == other.createdTime) {
             return 0;
         }
         return 1;
