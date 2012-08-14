@@ -61,7 +61,7 @@ public class Parser {
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes)
                 throws SAXException {
-            if (qName.equals(XML.EXIT_NODE)) {
+            if (qName.equals(XMLConstants.EXIT_NODE)) {
                 tempNode = new ExitNodeRecord();
             }
         }
@@ -73,27 +73,27 @@ public class Parser {
 
         @Override
         public void endElement(String uri, String localName, String qName) throws SAXException {
-            if (qName.equalsIgnoreCase(XML.EXIT_NODE)) {
+            if (qName.equalsIgnoreCase(XMLConstants.EXIT_NODE)) {
                 exitNodes.add(tempNode);
-            } else if (qName.equalsIgnoreCase(XML.SERVICE_ID)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.SERVICE_ID)) {
                 tempNode.setId(Long.parseLong(tempVal));
-            } else if (qName.equalsIgnoreCase(XML.PUBLIC_KEY)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.PUBLIC_KEY)) {
                 tempNode.setPublicKey(tempVal);
-            } else if (qName.equalsIgnoreCase(XML.NICKNAME)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.NICKNAME)) {
                 tempNode.setNickname(tempVal);
-            } else if (qName.equalsIgnoreCase(XML.BANDWIDTH)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.BANDWIDTH)) {
                 tempNode.setAdvertizedBandwidth(Integer.parseInt(tempVal));
-            } else if (qName.equalsIgnoreCase(XML.EXIT_POLICY)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.EXIT_POLICY)) {
                 tempNode.setExitPolicy(tempVal.split(","));
-            } else if (qName.equalsIgnoreCase(XML.VERSION)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.VERSION)) {
                 tempNode.setVersion(tempVal);
-            } else if (qName.equalsIgnoreCase(XML.SIGNATURE)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.SIGNATURE)) {
                 try {
                     tempNode.signature = Base64.decode(tempVal);
                 } catch (Base64DecodingException e) {
                     throw new IllegalArgumentException(e);
                 }
-            } else if (qName.equalsIgnoreCase(XML.EXIT_NODE_LIST)) {
+            } else if (qName.equalsIgnoreCase(XMLConstants.EXIT_NODE_LIST)) {
             } else {
                 throw new IllegalArgumentException("Unrecognized Tag: " + qName);
             }
