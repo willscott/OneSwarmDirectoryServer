@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.net.ContentHandler;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -17,11 +18,15 @@ import java.util.TimerTask;
 
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.apache.xerces.dom.DocumentImpl;
+import org.apache.xml.serialize.OutputFormat;
+import org.apache.xml.serialize.XMLSerializer;
+import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 public class ExitNodeDB {
-    private static final String DATABASE_FILE = "/home/nick/knownExitNodes.xml";
-    // The max age that a ExitNode registration may have befire it is deleted.
+    private static final String DATABASE_FILE = "knownExitNodes.xml";
+    // The max age that a ExitNode registration may have before it is deleted.
     private static final int MAX_AGE = 60 * 60 * 1000;
     private static final int GRACE_PERIOD = 60 * 1000;
     private final Map<Long, ExitNodeRecord> registeredKeys;
@@ -35,10 +40,18 @@ public class ExitNodeDB {
             File dbFile = new File(DATABASE_FILE);
             if (!dbFile.exists()) {
                 dbFile.createNewFile();
-                FileWriter file = new FileWriter(dbFile);
-                file.write(XML.HEADER + XML.tag(XML.EXIT_NODE_LIST, ""));
-                file.flush();
-                file.close();
+                OutputFormat of = new OutputFormat("XML","ISO-8859-1",true);
+                of.setIndent(1);
+                of.setIndenting(true);
+                of.setDoctype(null,"users.dtd");
+                FileOutputStream fos = new FileOutputStream(dbFile);
+                XMLSerializer serializer = new XMLSerializer(fos, of);
+                org.xml.sax.ContentHandler hd = serializer.asContentHandler();
+                hd.startDocument();
+                hd.startElement("", "", XMLConstants.EXIT_NODE_LIST, null);
+                hd.endElement("", "", XMLConstants.EXIT_NODE_LIST);
+                hd.endDocument();
+                fos.close();
             }
             readFromFile(dbFile);
         } catch (FileNotFoundException e) {

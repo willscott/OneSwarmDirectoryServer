@@ -14,4 +14,11 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>OneSwarm</name>
+			<type>2</type>
+			<locationURI>PROJECT_LOC/OneSwarm</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>
