@@ -13,6 +13,10 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -73,12 +77,22 @@ public class ExitNodeDB {
                 }
                 remove(oldNode);
             }
-            registeredKeys.put(node.serviceId, node);
         }
 
-        synchronized (mutableExitNodeList) {
-            mutableExitNodeList.add(node);
-        }
+        FutureTask<Boolean> verification = NodeVerifier.verify(node);
+        try {
+			if (verification.get(10, TimeUnit.SECONDS)) {
+				synchronized (registeredKeys) {
+					registeredKeys.put(node.serviceId, node);
+				}
+
+				synchronized (mutableExitNodeList) {
+					mutableExitNodeList.add(node);
+				}
+			}
+		} catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage());
+		}
     }
 
     void remove(ExitNodeRecord node) {

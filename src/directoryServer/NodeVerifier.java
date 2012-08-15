@@ -23,9 +23,12 @@ public class NodeVerifier implements Callable<Boolean> {
 
 	@Override
 	public Boolean call() throws Exception {
+		// Make sure the node will accept some connections.
 		if (!this.record.exitPolicy.contains("allow")) {
 			return false;
 		}
+		// See if the node can be reached.
+		
 		return true;
 	}
 }
