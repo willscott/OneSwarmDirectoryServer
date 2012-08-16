@@ -3,6 +3,7 @@ package directoryServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -11,20 +12,20 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.apache.xml.serialize.OutputFormat;
-import org.apache.xml.serialize.XMLSerializer;
 import org.mortbay.jetty.HttpConnection;
 import org.mortbay.jetty.Request;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.AbstractHandler;
 import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.thread.QueuedThreadPool;
-import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
+
 /**
  * Directory Server This class maintains a Database of ExitNodeInfo and serves
+ * 
  * it to OneSwarm instances that need
  * 
  * @author nick
@@ -70,7 +71,6 @@ public class OSDirectoryServer implements Runnable {
     }
 
     private class DirectoryRequestHandler extends AbstractHandler {
-        ExitNodeDB db;
 
         @Override
         public void handle(String target, HttpServletRequest req, HttpServletResponse resp,
@@ -88,87 +88,56 @@ public class OSDirectoryServer implements Runnable {
                     parameters.put(key, value);
                 }
             }
-
-            OutputFormat of = new OutputFormat("XML", "ISO-8859-1", true);
-            of.setIndent(1);
-            of.setIndenting(true);
-            XMLSerializer serializer = new XMLSerializer(resp.getOutputStream(), of);
-            ContentHandler hd = serializer.asContentHandler();
             try {
-            	hd.startDocument();
 
-            	// Check for the action parameter and do action
-            	if (parameters.containsKey(PARAM_ACTION)) {
-            		String action = parameters.get(PARAM_ACTION);
-            		if (action.equals(CHECK_IN)) {
-            			handleRegisterAction(true, request.getInputStream(), hd);
-            		} else if (action.equals(REGISTER)) {
-            			handleRegisterAction(false, request.getInputStream(), hd);
-            		} else if (action.equals(LIST_NODES)) {
-            			long lastUpdate = parameters.containsKey(LAST_UPDATE) ? Long
-            					.parseLong(parameters.get(LAST_UPDATE)) : 0l;
-            					db.getUpdatesSince(lastUpdate, hd);
-            		} else {
-            			hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
-            			char[] message = "Invalid Operation".toCharArray();
-            			hd.characters(message, 0, message.length);
-            			hd.endElement("", "", XMLConstants.GENERAL_ERROR);
-            		}
-            		hd.endDocument();
-            		request.setHandled(true);
-            		resp.getOutputStream().flush();
-            	}
-        	}
-        	catch (SAXException e) {
-        		request.setHandled(false);
-        	}
+                // Check for the action parameter and do action
+                if (parameters.containsKey(PARAM_ACTION)) {
+                    XMLHelper xmlOut = new XMLHelper(resp.getOutputStream());
+                    String action = parameters.get(PARAM_ACTION);
+                    if (action.equals(CHECK_IN)) {
+                        handleRegisterAction(true, request.getInputStream(), xmlOut);
+                    } else if (action.equals(REGISTER)) {
+                        handleRegisterAction(false, request.getInputStream(), xmlOut);
+                    } else if (action.equals(LIST_NODES)) {
+                        long lastUpdate = parameters.containsKey(LAST_UPDATE) ? Long
+                                .parseLong(parameters.get(LAST_UPDATE)) : 0l;
+                        db.getUpdatesSince(lastUpdate, xmlOut);
+                    } else {
+                        xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Operation");
+                    }
+                    xmlOut.close();
+                    request.setHandled(true);
+                    resp.getOutputStream().flush();
+                }
+            } catch (SAXException e) {
+                request.setHandled(false);
+            }
         }
 
-        private void handleRegisterAction(boolean justCheckIn, InputStream xml, ContentHandler hd)
+        private void handleRegisterAction(boolean justCheckIn, InputStream xmlIn, XMLHelper xmlOut)
                 throws SAXException {
             try {
-                List<ExitNodeRecord> newNodes = new Parser(xml).parseAsExitNodeList();
+                List<ExitNodeRecord> newNodes = new LinkedList<ExitNodeRecord>();
+                XMLHelper.parse(xmlIn, new ExitNodeListHandler(newNodes, xmlOut));
                 for (ExitNodeRecord node : newNodes) {
-                    try {
-                        if (justCheckIn) {
-                            db.checkIn(node);
-                        } else {
-                            db.add(node);
-                        }
-                    } catch (IllegalArgumentException e) {
-                        // TODO (nick) remove after debugging.
-                        e.printStackTrace();
-                        // These are our checks for correctness such
-                        // as "Duplicate Key Used"
-                        hd.startElement("", "", XMLConstants.EXIT_NODE, null);
-                        hd.startElement("", "", XMLConstants.SERVICE_ID, null);
-                        char[] msg = ("" + node.serviceId).toCharArray();
-                        hd.characters(msg, 0, msg.length);
-                        hd.endElement("", "", XMLConstants.SERVICE_ID);
-                        hd.startElement("", "", XMLConstants.NODE_ERROR, null);
-                        msg = e.getMessage().toCharArray();
-                        hd.characters(msg, 0, msg.length);
-                        hd.endElement("", "", XMLConstants.NODE_ERROR);
-                        hd.endElement("", "", XMLConstants.EXIT_NODE);
+                    xmlOut.startElement(XMLHelper.EXIT_NODE);
+                    xmlOut.writeTag(XMLHelper.SERVICE_ID, node.serviceId + "");
+                    if (justCheckIn) {
+                        db.checkIn(node, xmlOut);
+                    } else {
+                        db.add(node, xmlOut);
                     }
+                    xmlOut.endElement(XMLHelper.EXIT_NODE);
                 }
                 db.saveEdits();
             } catch (SAXParseException e) {
-                // TODO (nick) Remove after debugging.
-                e.printStackTrace();
                 // These are XML errors such as
                 // "Unexpected End of File"
-                hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
-                char[] msg = ("Error on line " + e.getLineNumber() + ", column "
-                        + e.getColumnNumber() + ": " + e.getMessage()).toCharArray();
-                hd.characters(msg, 0, msg.length);
-                hd.endElement("", "", XMLConstants.GENERAL_ERROR);
+                xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST,
+                        "Error on line " + e.getLineNumber() + ", column " + e.getColumnNumber()
+                                + ": " + e.getMessage());
             } catch (Exception e) {
-                e.printStackTrace();
-                hd.startElement("", "", XMLConstants.GENERAL_ERROR, null);
-                char[] msg = e.getMessage().toCharArray();
-                hd.characters(msg, 0, msg.length);
-                hd.endElement("", "", XMLConstants.GENERAL_ERROR);
+                xmlOut.writeStatus(XMLHelper.ERROR_GENERAL_SERVER, e.getMessage());
             }
         }
     }

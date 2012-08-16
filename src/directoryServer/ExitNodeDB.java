@@ -5,9 +5,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -16,10 +17,9 @@ import java.util.TimerTask;
 
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.apache.xml.serialize.OutputFormat;
-import org.apache.xml.serialize.XMLSerializer;
-import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
+
+import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
 public class ExitNodeDB {
     private static final String DATABASE_FILE = "knownExitNodes.xml";
@@ -37,16 +37,11 @@ public class ExitNodeDB {
             File dbFile = new File(DATABASE_FILE);
             if (!dbFile.exists()) {
                 dbFile.createNewFile();
-                OutputFormat of = new OutputFormat("XML", "ISO-8859-1", true);
-                of.setIndent(1);
-                of.setIndenting(true);
                 FileOutputStream fos = new FileOutputStream(dbFile);
-                XMLSerializer serializer = new XMLSerializer(fos, of);
-                org.xml.sax.ContentHandler hd = serializer.asContentHandler();
-                hd.startDocument();
-                hd.startElement("", "", XMLConstants.EXIT_NODE_LIST, null);
-                hd.endElement("", "", XMLConstants.EXIT_NODE_LIST);
-                hd.endDocument();
+                XMLHelper xmlOut = new XMLHelper(fos);
+                xmlOut.startElement(XMLHelper.EXIT_NODE_LIST);
+                xmlOut.endElement(XMLHelper.EXIT_NODE_LIST);
+                xmlOut.close();
                 fos.close();
             }
             readFromFile(dbFile);
@@ -59,17 +54,18 @@ public class ExitNodeDB {
         dbClean.start();
     }
 
-    public void add(ExitNodeRecord node) {
-        String errors = node.checkForErrors(true);
-        if (!errors.equals("")) {
-            throw new IllegalArgumentException(errors);
+    public void add(ExitNodeRecord node, XMLHelper xmlOut) throws SAXException {
+        if (node.checkForErrors(true, xmlOut)) {
+            return;
         }
 
         synchronized (registeredKeys) {
             if (registeredKeys.containsKey(node.serviceId)) {
                 ExitNodeRecord oldNode = registeredKeys.get(node.serviceId);
                 if (!oldNode.publicKey.equals(node.publicKey)) {
-                    throw new IllegalArgumentException("Duplicate Key Used.");
+                    xmlOut.writeStatus(XMLHelper.ERROR_DUPLICATE_SERVICE_ID,
+                            "Key already exists in registry.");
+                    return;
                 }
                 remove(oldNode);
             }
@@ -79,6 +75,7 @@ public class ExitNodeDB {
         synchronized (mutableExitNodeList) {
             mutableExitNodeList.add(node);
         }
+        xmlOut.writeStatus(XMLHelper.STATUS_SUCCESS, "Registration Suceeded.");
     }
 
     void remove(ExitNodeRecord node) {
@@ -90,25 +87,29 @@ public class ExitNodeDB {
         }
     }
 
-    public void checkIn(ExitNodeRecord node) {
-        String errors = node.checkForErrors(false);
-        if (!errors.equals("")) {
-            throw new IllegalArgumentException(errors);
+    public void checkIn(ExitNodeRecord node, XMLHelper xmlOut) throws SAXException {
+        if (node.checkForErrors(false, xmlOut)) {
+            return;
         }
 
         if (!registeredKeys.containsKey(node.serviceId)) {
-            throw new IllegalArgumentException("Service ID is not registered.");
+            xmlOut.writeStatus(XMLHelper.ERROR_UNREGISTERED_SERVICE_ID,
+                    "Unregistered serviceId. Register this ExitNode before using checkin.");
+            return;
         }
         ExitNodeRecord oldNode = registeredKeys.get(node.serviceId);
-        if (node.signature.equals(oldNode.signature) && oldNode.publicKey.equals(node.publicKey)) {
+        if (Arrays.equals(node.signature, oldNode.signature)
+                && oldNode.publicKey.equals(node.publicKey)) {
             registeredKeys.get(node.serviceId).checkIn();
         } else {
-            throw new IllegalArgumentException(
+            xmlOut.writeStatus(XMLHelper.ERROR_INVALID_SIGNATURE,
                     "Public Key or Signature does not match existing registration.");
+            return;
         }
+        xmlOut.writeStatus(XMLHelper.STATUS_SUCCESS, "Checkin Suceeded.");
     }
 
-    void saveEdits() {
+    void saveEdits() throws SAXException, IOException {
         PriorityQueue<ExitNodeRecord> newReadable = new PriorityQueue<ExitNodeRecord>();
         synchronized (mutableExitNodeList) {
             for (ExitNodeRecord node : mutableExitNodeList) {
@@ -119,46 +120,44 @@ public class ExitNodeDB {
         saveToFile(new File(DATABASE_FILE));
     }
 
-    public void getUpdatesSince(long lastUpdateTime, ContentHandler hd) {
+    public void getUpdatesSince(long lastUpdateTime, XMLHelper xmlOut) {
         for (ExitNodeRecord node : readableExitNodeList) {
             if (node.createdTime > lastUpdateTime) {
-            	try {
-            		node.fullXML(hd);
-            	} catch(Exception e) {
-            		continue;
-            	}
+                try {
+                    node.fullXML(xmlOut);
+                } catch (Exception e) {
+                    continue;
+                }
             } else {
                 break;
             }
         }
     }
 
-    private void saveToFile(File file) {
-        try {
-        	FileOutputStream fos = new FileOutputStream(file);
-            OutputFormat of = new OutputFormat("XML", "ISO-8859-1", true);
-            of.setIndent(1);
-            of.setIndenting(true);
-            XMLSerializer serializer = new XMLSerializer(fos, of);
-            ContentHandler hd = serializer.asContentHandler();
-            hd.startDocument();
-            hd.startElement("", "", XMLConstants.EXIT_NODE_LIST, null);
-            getUpdatesSince(0, hd);
-            hd.endElement("", "", XMLConstants.EXIT_NODE_LIST);
-            hd.endDocument();
-            fos.flush();
-            fos.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void clear() throws SAXException, IOException {
+        mutableExitNodeList.clear();
+        registeredKeys.clear();
+        saveEdits();
+    }
+
+    private void saveToFile(File file) throws SAXException, IOException {
+        FileOutputStream fos = new FileOutputStream(file);
+        XMLHelper xmlOut = new XMLHelper(fos);
+        xmlOut.startElement(XMLHelper.EXIT_NODE_LIST);
+        getUpdatesSince(0, xmlOut);
+        xmlOut.endElement(XMLHelper.EXIT_NODE_LIST);
+        xmlOut.close();
+        fos.close();
     }
 
     private void readFromFile(File file) throws ParserConfigurationException, SAXException,
             IOException {
+        XMLHelper xmlOut = new XMLHelper(System.out);
         FileInputStream in = new FileInputStream(file);
-        List<ExitNodeRecord> savedNodes = new Parser(in).parseAsExitNodeList();
+        List<ExitNodeRecord> savedNodes = new LinkedList<ExitNodeRecord>();
+        XMLHelper.parse(in, new ExitNodeListHandler(savedNodes, xmlOut));
         for (ExitNodeRecord node : savedNodes) {
-            add(node);
+            add(node, xmlOut);
         }
         saveEdits();
         in.close();
@@ -184,7 +183,13 @@ public class ExitNodeDB {
                             }
                         }
                     }
-                    saveEdits();
+                    try {
+                        saveEdits();
+                    } catch (SAXException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }, 0, MAX_AGE / 4);
         }

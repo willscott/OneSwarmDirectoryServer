@@ -2,18 +2,13 @@ package directoryServer;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.StringWriter;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
 
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.apache.xerces.util.XMLStringBuffer;
-import org.apache.xml.serialize.OutputFormat;
-import org.apache.xml.serialize.XMLSerializer;
-import org.xml.sax.ContentHandler;
+import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
 class ServiceConsole implements Runnable {
     private static final String PROMPT = ">>> ";
@@ -36,7 +31,7 @@ class ServiceConsole implements Runnable {
                 } else if (commands.containsKey(args[1])) {
                     System.out.println(commands.get(args[1]).help());
                 } else {
-                    System.out.println(help());
+                    System.out.println("Unable to display help about that command.");
                 }
             }
 
@@ -50,23 +45,36 @@ class ServiceConsole implements Runnable {
         commands.put("print", new ServiceCommand() {
             @Override
             void perform(String[] args) {
-            	try {
-            		OutputFormat of = new OutputFormat();
-            		StringWriter sw = new StringWriter();
-            		XMLSerializer serializer = new XMLSerializer(sw, of);
-            		ContentHandler hd = serializer.asContentHandler();
-            		hd.startDocument();
-            		db.getUpdatesSince(0l, hd);
-            		hd.endDocument();
-            		System.out.println(sw.toString());
-            	} catch(Exception e) {
-            		e.printStackTrace();
-            	}
+                try {
+                    XMLHelper xmlOut = new XMLHelper(System.out);
+                    db.getUpdatesSince(0l, xmlOut);
+                    xmlOut.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
 
             @Override
             String help() {
                 return "Usage: print\n\tPrints the contents of the ExitNode Database.";
+            }
+        });
+
+        // CLEAR Command
+        commands.put("clear", new ServiceCommand() {
+            @Override
+            void perform(String[] args) {
+                try {
+                    db.clear();
+                    System.out.println("Cleared.");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            String help() {
+                return "Usage: clear\n\tClears the contents of the ExitNode Database.";
             }
         });
 
@@ -78,15 +86,16 @@ class ServiceConsole implements Runnable {
                 if (args.length == 2) {
                     try {
                         FileInputStream file = new FileInputStream(args[1]);
-                        List<ExitNodeRecord> newNodes = new Parser(file).parseAsExitNodeList();
+                        XMLHelper xmlOut = new XMLHelper(System.out);
+                        List<ExitNodeRecord> newNodes = new LinkedList<ExitNodeRecord>();
+                        XMLHelper.parse(file, new ExitNodeListHandler(newNodes, xmlOut));
+                        xmlOut.close();
                         for (ExitNodeRecord node : newNodes) {
-                            db.add(node);
+                            db.add(node, new XMLHelper(System.out));
                         }
                         db.saveEdits();
                     } catch (FileNotFoundException e) {
                         System.out.println("Invalid file specified.");
-                    } catch (ParserConfigurationException e) {
-                        e.printStackTrace();
                     } catch (Exception e) {
                         System.out.println(e.toString());
                     }

@@ -1,14 +1,15 @@
 package directoryServer;
 
 import java.io.UnsupportedEncodingException;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
 
-import org.mortbay.util.Utf8StringBuffer;
-import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
 import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
+
+import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
 public class ExitNodeRecord implements Comparable<ExitNodeRecord> {
     // Verification Constants
@@ -37,56 +38,79 @@ public class ExitNodeRecord implements Comparable<ExitNodeRecord> {
         lastCheckinTime = System.currentTimeMillis();
     }
 
-    public String checkForErrors(boolean fullCheckInclSignature) {
-        String errors = "";
+    public boolean checkForErrors(boolean fullCheckInclSignature, XMLHelper xmlOut)
+            throws SAXException {
+        boolean caughtErrors = false;
         if (lastCheckinTime < createdTime) {
-            errors += "\tBroken Timestamp. Created at " + createdTime + " Last check-in "
-                    + lastCheckinTime + "\n";
+            xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Broken Timestamp. Created at "
+                    + createdTime + " Last check-in " + lastCheckinTime + ".");
+            caughtErrors = true;
         }
         if (serviceId == 0) {
-            errors += "\tInvalid Service ID\n";
+            xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Service ID.");
+            caughtErrors = true;
         }
         PublicKey pubKey = decodeKeyString(publicKey);
         if (pubKey == null || pubKey.getAlgorithm() == "RSA" || pubKey.getFormat() == "PKCS#8"
                 || pubKey.getEncoded().length != PUB_KEY_LENGTH) {
-            errors += "\tInvalid RSA Public Key\n";
+            xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid RSA Public Key.");
+            caughtErrors = true;
         }
         if (fullCheckInclSignature) {
             if (nickname == null || nickname.length() < MIN_NICKNAME_LENGTH) {
-                errors += "\tInvalid Nickname. Must be 3 or more characters\n";
+                xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST,
+                        "Invalid Nickname. Must be 3 or more characters.");
+                caughtErrors = true;
             }
             if (bandwidth == 0) {
-                errors += "\tInvalid Advertized Bandwidth\n";
+                xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Advertized Bandwidth.");
+                caughtErrors = true;
             }
             if (exitPolicy == null || exitPolicy.length() == 0) {
-                errors += "\tInvalid Exit Policy\n";
+                xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Exit Policy.");
+                caughtErrors = true;
             }
             if (version == null || version.length() == 0) {
-                errors += "\tInvalid Version String\n";
+                xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Version String.");
+                caughtErrors = true;
             }
             if (signature == null || signature.length != SIG_LENGTH) {
-                errors += "\tInvalid Signature\n" + signature.length;
+                xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Signature length. Must be "
+                        + SIG_LENGTH + "bytes.");
+                caughtErrors = true;
             }
-            if (errors.equals("")) {
+            if (!caughtErrors) {
+                Signature sig;
                 try {
-                    Signature sig = Signature.getInstance("SHA1withRSA");
-                    sig.initVerify(pubKey);
-                    sig.update(hashBase());
-                    if (!sig.verify(signature)) {
-                        errors += "\tSignature Verification Failed\n";
+                    sig = Signature.getInstance("SHA1withRSA");
+                    try {
+                        sig.initVerify(pubKey);
+                        sig.update(hashBase());
+                        if (!sig.verify(signature)) {
+                            xmlOut.writeStatus(XMLHelper.ERROR_INVALID_SIGNATURE,
+                                    "Signature Verification Failed.");
+                            caughtErrors = true;
+                        }
+                    } catch (Exception e) {
+                        xmlOut.writeStatus(XMLHelper.ERROR_INVALID_SIGNATURE, "Invalid Signature: "
+                                + e.getMessage());
+                        caughtErrors = true;
                     }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
+                } catch (NoSuchAlgorithmException e) {
+                    xmlOut.writeStatus(XMLHelper.ERROR_GENERAL_SERVER,
+                            "Signature Verification failed on the Server");
+                    e.printStackTrace();
                 }
+
             }
         }
-        return errors;
+        return caughtErrors;
     }
 
     private byte[] hashBase() {
         try {
-            return (publicKey + this.nickname + bandwidth + this.exitPolicy.toString() + this.version)
-                    .getBytes(XMLConstants.ENCODING);
+            return (publicKey + this.nickname + bandwidth + exitPolicy + version)
+                    .getBytes(XMLHelper.ENCODING);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
@@ -123,30 +147,17 @@ public class ExitNodeRecord implements Comparable<ExitNodeRecord> {
             }
         };
     }
-    
-    private void addKey(ContentHandler hd, String key, String value) throws SAXException {
-    	hd.startElement("", "", key, null);
-    	char[] valArray = value.toCharArray();
-    	hd.characters(valArray, 0, valArray.length);
-    	hd.endElement("", "", key);
-    }
 
-    public void fullXML(ContentHandler hd) throws SAXException {
-    	hd.startElement("", "", XMLConstants.EXIT_NODE, null);
-    	addKey(hd, XMLConstants.SERVICE_ID, Long.toString(this.serviceId));
-    	addKey(hd, XMLConstants.PUBLIC_KEY, this.publicKey);
-    	addKey(hd, XMLConstants.NICKNAME, this.nickname);
-    	addKey(hd, XMLConstants.BANDWIDTH, "" + this.bandwidth);
-    	addKey(hd, XMLConstants.EXIT_POLICY, this.exitPolicy);
-    	addKey(hd, XMLConstants.VERSION, this.version);
-    	hd.startElement("", "", XMLConstants.SIGNATURE, null);
-    	Utf8StringBuffer usb = new Utf8StringBuffer();
-    	usb.append(this.signature, 0, this.signature.length);
-    	char[] sig = usb.toString().toCharArray();
-    	hd.characters(sig, 0, sig.length);
-    	hd.endElement("", "", XMLConstants.SIGNATURE);
-
-    	hd.endElement("", "", XMLConstants.EXIT_NODE);
+    public void fullXML(XMLHelper xmlOut) throws SAXException {
+        xmlOut.startElement(XMLHelper.EXIT_NODE);
+        xmlOut.writeTag(XMLHelper.SERVICE_ID, Long.toString(this.serviceId));
+        xmlOut.writeTag(XMLHelper.PUBLIC_KEY, this.publicKey);
+        xmlOut.writeTag(XMLHelper.NICKNAME, this.nickname);
+        xmlOut.writeTag(XMLHelper.BANDWIDTH, "" + this.bandwidth);
+        xmlOut.writeTag(XMLHelper.EXIT_POLICY, this.exitPolicy);
+        xmlOut.writeTag(XMLHelper.VERSION, this.version);
+        xmlOut.writeTag(XMLHelper.SIGNATURE, Base64.encode(signature));
+        xmlOut.endElement(XMLHelper.EXIT_NODE);
     }
 
     @Override
