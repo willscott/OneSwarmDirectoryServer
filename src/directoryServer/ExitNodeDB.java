@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -69,13 +71,23 @@ public class ExitNodeDB {
                 }
                 remove(oldNode);
             }
-            registeredKeys.put(node.serviceId, node);
         }
 
-        synchronized (mutableExitNodeList) {
-            mutableExitNodeList.add(node);
+        FutureTask<Boolean> verification = NodeVerifier.verify(node);
+        try {
+            if (verification.get(10, TimeUnit.SECONDS)) {
+                synchronized (registeredKeys) {
+                    registeredKeys.put(node.serviceId, node);
+                }
+
+                synchronized (mutableExitNodeList) {
+                    mutableExitNodeList.add(node);
+                }
+                xmlOut.writeStatus(XMLHelper.STATUS_SUCCESS, "Registration Suceeded.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        xmlOut.writeStatus(XMLHelper.STATUS_SUCCESS, "Registration Suceeded.");
     }
 
     void remove(ExitNodeRecord node) {
