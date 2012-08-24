@@ -41,12 +41,12 @@ public class OSDirectoryServer implements Runnable {
     private static final String LAST_UPDATE = "lastUpdate";
 
     final Server jettyServer = new Server();
-    ExitNodeDB db;
+    DirectoryDB db;
 
     private OSDirectoryServer(int port) throws ParserConfigurationException, SAXException,
             IOException {
 
-        db = new ExitNodeDB();
+        db = new DirectoryDB();
         new Thread(new ServiceConsole(db)).start();
 
         /* Define thread pool for the web server. */
@@ -117,17 +117,17 @@ public class OSDirectoryServer implements Runnable {
         private void handleRegisterAction(boolean justCheckIn, InputStream xmlIn, XMLHelper xmlOut)
                 throws SAXException {
             try {
-                List<ExitNodeRecord> newNodes = new LinkedList<ExitNodeRecord>();
-                XMLHelper.parse(xmlIn, new ExitNodeListHandler(newNodes, xmlOut));
-                for (ExitNodeRecord node : newNodes) {
-                    xmlOut.startElement(XMLHelper.EXIT_NODE);
+                List<DirectoryRecord> newNodes = new LinkedList<DirectoryRecord>();
+                XMLHelper.parse(xmlIn, new DirectoryRecordHandler(newNodes, xmlOut));
+                for (DirectoryRecord node : newNodes) {
+                    xmlOut.startElement(node.type());
                     xmlOut.writeTag(XMLHelper.SERVICE_ID, node.serviceId + "");
                     if (justCheckIn) {
                         db.checkIn(node, xmlOut);
                     } else {
                         db.add(node, xmlOut);
                     }
-                    xmlOut.endElement(XMLHelper.EXIT_NODE);
+                    xmlOut.endElement(node.type());
                 }
                 db.saveEdits();
             } catch (SAXParseException e) {

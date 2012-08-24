@@ -4,31 +4,40 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 
 public class NodeVerifier implements Callable<Boolean> {
-	/**
-	 * Verify an exit node record.
-	 * A final return value of true indicates the record can be
-	 * assumed to be legitimate.
-	 * 
-	 * @param record The Published record to verify.
-	 * @return A future task indicating the progress of verification.
-	 */
-	public static FutureTask<Boolean> verify(ExitNodeRecord record) {
-		return new FutureTask<Boolean>(new NodeVerifier(record));
-	}
-	
-	private final ExitNodeRecord record;
-	private NodeVerifier(ExitNodeRecord record) {
-		this.record = record;
-	}
+    /**
+     * Verify an exit node record. A final return value of true indicates the
+     * record can be assumed to be legitimate.
+     * 
+     * @param record
+     *            The Published record to verify.
+     * @return A future task indicating the progress of verification.
+     */
+    public static FutureTask<Boolean> verify(DirectoryRecord record) {
+        return new FutureTask<Boolean>(new NodeVerifier(record));
+    }
 
-	@Override
-	public Boolean call() throws Exception {
-		// Make sure the node will accept some connections.
-		if (!this.record.exitPolicy.contains("allow")) {
-			return false;
-		}
-		// See if the node can be reached.
-		
-		return true;
-	}
+    private final DirectoryRecord record;
+
+    private NodeVerifier(DirectoryRecord record) {
+        this.record = record;
+    }
+
+    @Override
+    public Boolean call() throws Exception {
+        // Make sure the node will accept some connections.
+        if (record instanceof ExitNodeRecord) {
+            ExitNodeRecord exitNode = (ExitNodeRecord) record;
+            if (!exitNode.exitPolicy.contains("allow")) {
+                return false;
+            }
+            // TODO (willscott) See if the exit node can be reached.
+            return true;
+        } else if (record instanceof ServiceRecord) {
+            // TODO (willscott) See if the OS Website can be reached
+            return true;
+        } else {
+            // If the DirectoryRecord is not a known type, dont allow
+            return false;
+        }
+    }
 }
