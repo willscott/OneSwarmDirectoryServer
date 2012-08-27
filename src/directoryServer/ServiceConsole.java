@@ -13,9 +13,9 @@ import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 class ServiceConsole implements Runnable {
     private static final String PROMPT = ">>> ";
     private final Map<String, ServiceCommand> commands = new TreeMap<String, ServiceCommand>();
-    private final ExitNodeDB db;
+    private final DirectoryDB db;
 
-    public ServiceConsole(ExitNodeDB dataBase) {
+    public ServiceConsole(DirectoryDB dataBase) {
         this.db = dataBase;
 
         // HELP Command
@@ -87,10 +87,10 @@ class ServiceConsole implements Runnable {
                     try {
                         FileInputStream file = new FileInputStream(args[1]);
                         XMLHelper xmlOut = new XMLHelper(System.out);
-                        List<ExitNodeRecord> newNodes = new LinkedList<ExitNodeRecord>();
-                        XMLHelper.parse(file, new ExitNodeListHandler(newNodes, xmlOut));
+                        List<DirectoryRecord> newNodes = new LinkedList<DirectoryRecord>();
+                        XMLHelper.parse(file, new DirectoryRecordHandler(newNodes, xmlOut));
                         xmlOut.close();
-                        for (ExitNodeRecord node : newNodes) {
+                        for (DirectoryRecord node : newNodes) {
                             db.add(node, new XMLHelper(System.out));
                         }
                         db.saveEdits();

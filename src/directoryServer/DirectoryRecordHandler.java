@@ -11,14 +11,14 @@ import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
-public class ExitNodeListHandler extends DefaultHandler {
-    private ExitNodeRecord tempNode;
+public class DirectoryRecordHandler extends DefaultHandler {
+    private DirectoryRecord tempNode;
     private String tempVal;
     private boolean errors = false;
-    private final List<ExitNodeRecord> exitNodes;
+    private final List<DirectoryRecord> exitNodes;
     private final XMLHelper xmlOut;
 
-    public ExitNodeListHandler(List<ExitNodeRecord> list, XMLHelper xmlOut) {
+    public DirectoryRecordHandler(List<DirectoryRecord> list, XMLHelper xmlOut) {
         this.exitNodes = list;
         this.xmlOut = xmlOut;
     }
@@ -26,10 +26,12 @@ public class ExitNodeListHandler extends DefaultHandler {
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attributes)
             throws SAXException {
-        if (qName.equals(XMLHelper.EXIT_NODE)) {
+        if (qName.equalsIgnoreCase(XMLHelper.EXIT_NODE)) {
             tempNode = new ExitNodeRecord();
-            errors = false;
+        } else if (qName.equalsIgnoreCase(XMLHelper.SERVICE)) {
+            tempNode = new ServiceRecord();
         }
+        errors = false;
     }
 
     @Override
@@ -39,7 +41,7 @@ public class ExitNodeListHandler extends DefaultHandler {
 
     @Override
     public void endElement(String uri, String localName, String qName) throws SAXException {
-        if (qName.equalsIgnoreCase(XMLHelper.EXIT_NODE)) {
+        if (qName.equalsIgnoreCase(tempNode.type())) {
             if (!errors) {
                 exitNodes.add(tempNode);
             }
@@ -50,11 +52,17 @@ public class ExitNodeListHandler extends DefaultHandler {
         } else if (qName.equalsIgnoreCase(XMLHelper.NICKNAME)) {
             tempNode.nickname = tempVal;
         } else if (qName.equalsIgnoreCase(XMLHelper.BANDWIDTH)) {
-            tempNode.bandwidth = Integer.parseInt(tempVal);
+            if (tempNode instanceof ExitNodeRecord) {
+                ((ExitNodeRecord) tempNode).bandwidth = Integer.parseInt(tempVal);
+            }
         } else if (qName.equalsIgnoreCase(XMLHelper.EXIT_POLICY)) {
-            tempNode.exitPolicy = tempVal;
+            if (tempNode instanceof ExitNodeRecord) {
+                ((ExitNodeRecord) tempNode).exitPolicy = tempVal;
+            }
         } else if (qName.equalsIgnoreCase(XMLHelper.VERSION)) {
-            tempNode.version = tempVal;
+            if (tempNode instanceof ExitNodeRecord) {
+                ((ExitNodeRecord) tempNode).version = tempVal;
+            }
         } else if (qName.equalsIgnoreCase(XMLHelper.SIGNATURE)) {
             try {
                 tempNode.signature = Base64.decode(tempVal);
@@ -66,7 +74,7 @@ public class ExitNodeListHandler extends DefaultHandler {
                 xmlOut.endElement(XMLHelper.EXIT_NODE);
                 errors = true;
             }
-        } else if (qName.equalsIgnoreCase(XMLHelper.EXIT_NODE_LIST)) {
+        } else if (qName.equalsIgnoreCase(XMLHelper.ROOT)) {
         } else {
             xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Unrecognized Tag: " + qName);
             errors = true;
