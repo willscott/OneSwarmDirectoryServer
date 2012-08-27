@@ -41,8 +41,6 @@ public class DirectoryDB {
                 dbFile.createNewFile();
                 FileOutputStream fos = new FileOutputStream(dbFile);
                 XMLHelper xmlOut = new XMLHelper(fos);
-                xmlOut.startElement(XMLHelper.ROOT);
-                xmlOut.endElement(XMLHelper.ROOT);
                 xmlOut.close();
                 fos.close();
             }
@@ -155,9 +153,7 @@ public class DirectoryDB {
     private void saveToFile(File file) throws SAXException, IOException {
         FileOutputStream fos = new FileOutputStream(file);
         XMLHelper xmlOut = new XMLHelper(fos);
-        xmlOut.startElement(XMLHelper.ROOT);
         getUpdatesSince(0, xmlOut);
-        xmlOut.endElement(XMLHelper.ROOT);
         xmlOut.close();
         fos.close();
     }

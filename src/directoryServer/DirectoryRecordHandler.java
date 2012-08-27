@@ -41,7 +41,7 @@ public class DirectoryRecordHandler extends DefaultHandler {
 
     @Override
     public void endElement(String uri, String localName, String qName) throws SAXException {
-        if (qName.equalsIgnoreCase(tempNode.type())) {
+        if (tempNode != null && qName.equalsIgnoreCase(tempNode.type())) {
             if (!errors) {
                 exitNodes.add(tempNode);
             }

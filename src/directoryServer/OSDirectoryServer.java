@@ -1,11 +1,14 @@
 package directoryServer;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.math.BigInteger;
 import java.security.KeyStore.ProtectionParameter;
 import java.security.cert.Certificate;
@@ -17,6 +20,7 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.security.Signature;
+import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -34,6 +38,7 @@ import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v1CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.util.encoders.Base64;
 import org.mortbay.jetty.HttpConnection;
 import org.mortbay.jetty.Request;
 import org.mortbay.jetty.Server;
@@ -90,10 +95,16 @@ public class OSDirectoryServer implements Runnable {
         jettyServer.addConnector(connector);
 
         /* Define handlers for the web server. */
-        jettyServer.addHandler(new DirectoryRequestHandler());
+        jettyServer.addHandler(new DirectoryRequestHandler(authority));
     }
 
     private class DirectoryRequestHandler extends AbstractHandler {
+    	private final Signature authority;
+
+    	protected DirectoryRequestHandler(Signature authority) {
+    		super();
+    		this.authority = authority;
+    	}
 
         @Override
         public void handle(String target, HttpServletRequest req, HttpServletResponse resp,
@@ -115,7 +126,8 @@ public class OSDirectoryServer implements Runnable {
 
                 // Check for the action parameter and do action
                 if (parameters.containsKey(PARAM_ACTION)) {
-                    XMLHelper xmlOut = new XMLHelper(resp.getOutputStream());
+                	ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
+                    XMLHelper xmlOut = new XMLHelper(responseStream);
                     String action = parameters.get(PARAM_ACTION);
                     if (action.equals(CHECK_IN)) {
                         handleRegisterAction(true, request.getInputStream(), xmlOut);
@@ -128,13 +140,27 @@ public class OSDirectoryServer implements Runnable {
                     } else {
                         xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST, "Invalid Operation");
                     }
+                    xmlOut.writeDigest();
                     xmlOut.close();
+                    byte[] response = responseStream.toByteArray();
+                    authority.update(response);
+                    byte[] sig = authority.sign();
+                    int pos = Utils.lastIndexOf(response, XMLHelper.DIGEST_PLACEHOLDER.getBytes());
+                    int remainder = pos + XMLHelper.DIGEST_PLACEHOLDER.getBytes().length;
                     request.setHandled(true);
+                    
+                    resp.getOutputStream().write(response, 0, pos);
+                    resp.getOutputStream().write(Base64.encode(sig), 0, sig.length);
+                    resp.getOutputStream().write(response, remainder, response.length - remainder);
+                    
                     resp.getOutputStream().flush();
                 }
             } catch (SAXException e) {
                 request.setHandled(false);
-            }
+            } catch (SignatureException e) {
+            	request.setHandled(false);
+				e.printStackTrace();
+			}
         }
 
         private void handleRegisterAction(boolean justCheckIn, InputStream xmlIn, XMLHelper xmlOut)
