@@ -8,5 +8,7 @@
 	<classpathentry kind="lib" path="lib/jetty-util.jar"/>
 	<classpathentry kind="lib" path="lib/jetty.jar"/>
 	<classpathentry kind="lib" path="lib/xercesImpl.jar"/>
+	<classpathentry kind="lib" path="lib/bcprov-jdk15on-147.jar"/>
+	<classpathentry kind="lib" path="lib/bcpkix-jdk15on-147.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -1,7 +1,23 @@
 package directoryServer;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
+import java.security.KeyStore.ProtectionParameter;
+import java.security.cert.Certificate;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStore.PasswordProtection;
+import java.security.PrivateKey;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.security.Signature;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -12,6 +28,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v1CertificateBuilder;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.mortbay.jetty.HttpConnection;
 import org.mortbay.jetty.Request;
 import org.mortbay.jetty.Server;
@@ -31,6 +53,7 @@ import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
  * @author nick
  */
 public class OSDirectoryServer implements Runnable {
+	private static final String KEY_STORE = "key.store";
     private static final String PARAM_ACTION = "action";
     private static final String CHECK_IN = "checkin";
     private static final String REGISTER = "register";
@@ -43,7 +66,7 @@ public class OSDirectoryServer implements Runnable {
     final Server jettyServer = new Server();
     ExitNodeDB db;
 
-    private OSDirectoryServer(int port) throws ParserConfigurationException, SAXException,
+    private OSDirectoryServer(int port, Signature authority) throws ParserConfigurationException, SAXException,
             IOException {
 
         db = new ExitNodeDB();
@@ -157,7 +180,45 @@ public class OSDirectoryServer implements Runnable {
     public static void main(String[] args) {
         try {
             int port = 7888;
-            Thread directoryServer = new Thread(new OSDirectoryServer(port));
+            File storeFile = new File(KEY_STORE);
+            boolean firstTime = !storeFile.exists();
+            
+            KeyStore store = java.security.KeyStore.getInstance("JKS");
+            if (firstTime) {
+            	Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+            	store.load(null, null);
+            	KeyPairGenerator keygen = java.security.KeyPairGenerator.getInstance("RSA");
+            	keygen.initialize(1024, new SecureRandom());
+            	KeyPair newkey = keygen.generateKeyPair();
+
+            	// Generate the certificate linking the key pair.
+            	Date startDate = new Date();
+            	Date endDate = new Date(System.currentTimeMillis() + 5 * 365 * 24 * 60 * 60 * 1000); // 5 years.
+
+            	ContentSigner siggen = new JcaContentSignerBuilder("SHA1withRSA").setProvider("BC").build(newkey.getPrivate());
+            	SubjectPublicKeyInfo pubinfo = SubjectPublicKeyInfo.getInstance(newkey.getPublic().getEncoded());
+            	
+            	X509CertificateHolder holder = new X509v1CertificateBuilder(
+            			new X500Name("CN=OneSwarmDirectory"),
+            			BigInteger.ONE,
+            			startDate,
+            			endDate,
+            			new X500Name("CN=OneSwarmDirectory"),
+            			pubinfo).build(siggen);
+            	Certificate cert = java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(holder.getEncoded()));
+            	
+            	store.setKeyEntry("signingkey", newkey.getPrivate(), new char[] {}, new java.security.cert.Certificate[] {cert});
+            	store.setCertificateEntry("signingcert", cert);
+            	store.store(new FileOutputStream(storeFile), new char[] {});
+            } else {
+            	store.load(new FileInputStream(storeFile), new char[] {});
+            }
+
+            PrivateKey privateKey = ((KeyStore.PrivateKeyEntry) store.getEntry("signingkey", new PasswordProtection(new char[] {}))).getPrivateKey();
+            Signature me = java.security.Signature.getInstance("SHA1withRSA");
+            me.initSign(privateKey);
+            
+            Thread directoryServer = new Thread(new OSDirectoryServer(port, me));
             directoryServer.setName("Exit Node Directory Web Server");
             directoryServer.start();
         } catch (Exception e) {
