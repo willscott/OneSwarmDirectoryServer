@@ -3,3 +3,4 @@ key.store
 directory.cert
 knownPartners.txt
 knownExitNodes.xml
+DirectoryServer.jar

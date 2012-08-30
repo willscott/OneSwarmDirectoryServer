@@ -73,4 +73,17 @@
             <classpath refid="OneSwarmDirectoryServer.classpath"/>
         </java>
     </target>
+    <target name="unpack">
+        <unjar dest="bin/">
+            <fileset dir="lib/" includes="*.jar" />
+        </unjar>
+        <delete dir="bin/META-INF" />
+    </target>
+    <target depends="unpack,build" name="package">
+        <jar destfile="DirectoryServer.jar" basedir="bin/">
+            <manifest>
+                <attribute name="Main-Class" value="directoryServer.OSDirectoryServer" />
+            </manifest>
+        </jar>
+    </target>
 </project>
