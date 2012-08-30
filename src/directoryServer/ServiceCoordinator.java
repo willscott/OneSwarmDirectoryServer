@@ -18,10 +18,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.xerces.impl.dv.util.Base64;
 import org.mortbay.jetty.HttpConnection;
 import org.mortbay.jetty.Request;
-
-import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 /**
  * This class coordinates state between different instances of "the same server."

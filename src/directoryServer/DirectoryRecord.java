@@ -5,9 +5,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
 
+import org.bouncycastle.util.encoders.Base64;
 import org.xml.sax.SAXException;
-
-import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
 
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 

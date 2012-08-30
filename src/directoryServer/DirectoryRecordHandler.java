@@ -2,12 +2,10 @@ package directoryServer;
 
 import java.util.List;
 
+import org.apache.xerces.impl.dv.util.Base64;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
-
-import com.sun.org.apache.xml.internal.security.exceptions.Base64DecodingException;
-import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
@@ -66,7 +64,7 @@ public class DirectoryRecordHandler extends DefaultHandler {
         } else if (qName.equalsIgnoreCase(XMLHelper.SIGNATURE)) {
             try {
                 tempNode.signature = Base64.decode(tempVal);
-            } catch (Base64DecodingException e) {
+            } catch (Exception e) {
                 xmlOut.startElement(XMLHelper.EXIT_NODE);
                 xmlOut.writeTag(XMLHelper.SERVICE_ID, tempNode.serviceId + "");
                 xmlOut.writeStatus(XMLHelper.ERROR_BAD_REQUEST,
