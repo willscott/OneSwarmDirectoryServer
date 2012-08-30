@@ -58,6 +58,7 @@ public class OSDirectoryServer implements Runnable {
 	public static OSDirectoryServer instance;
 	
 	private static final String KEY_STORE = "key.store";
+	private static final String CERT_STORE = "directory.cert";
     private static final String PARAM_ACTION = "action";
     private static final String CHECK_IN = "checkin";
     private static final String REGISTER = "register";
@@ -238,6 +239,7 @@ public class OSDirectoryServer implements Runnable {
             			new X500Name("CN=OneSwarmDirectory"),
             			pubinfo).build(siggen);
             	Certificate cert = java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(holder.getEncoded()));
+            	new FileOutputStream(CERT_STORE).write(Base64.encode(holder.getEncoded()));
             	
             	store.setKeyEntry("signingkey", newkey.getPrivate(), new char[] {}, new java.security.cert.Certificate[] {cert});
             	store.setCertificateEntry("signingcert", cert);
@@ -249,6 +251,7 @@ public class OSDirectoryServer implements Runnable {
             PrivateKey privateKey = ((KeyStore.PrivateKeyEntry) store.getEntry("signingkey", new PasswordProtection(new char[] {}))).getPrivateKey();
             Signature me = java.security.Signature.getInstance("SHA1withRSA");
             me.initSign(privateKey);
+            me.initVerify(store.getCertificate("signingcert"));
             
             Thread directoryServer = new Thread(new OSDirectoryServer(port, me));
             directoryServer.setName("Exit Node Directory Web Server");
