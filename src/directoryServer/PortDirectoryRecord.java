@@ -8,9 +8,10 @@ import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
 
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
-public class ServiceRecord extends DirectoryRecord {
+public class PortDirectoryRecord extends DirectoryRecord {
+	private static final long serialVersionUID = 2547845874756953017L;
 
-    @Override
+	@Override
     public void fullXML(XMLHelper xmlOut) throws SAXException {
         xmlOut.startElement(XMLHelper.SERVICE);
         xmlOut.writeTag(XMLHelper.SERVICE_ID, Long.toString(this.serviceId));

@@ -1,7 +1,5 @@
 package directoryServer;
 
-import java.util.Arrays;
-
 public class Utils {
 	public static int lastIndexOf(byte[] haystack, byte[] needle) {
 		int needleLength = needle.length;

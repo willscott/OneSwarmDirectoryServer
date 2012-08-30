@@ -8,8 +8,9 @@ import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
 
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
-public class ExitNodeRecord extends DirectoryRecord {
-    int bandwidth;
+public class ProxyDirectoryRecord extends DirectoryRecord {
+	private static final long serialVersionUID = 3296371858195528174L;
+	int bandwidth;
     String version;
     public String exitPolicy;
 

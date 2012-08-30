@@ -1,5 +1,6 @@
 package directoryServer;
 
+import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
@@ -10,8 +11,9 @@ import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
 
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
-abstract class DirectoryRecord implements Comparable<ExitNodeRecord> {
-    // Verification Constants
+abstract class DirectoryRecord implements Comparable<ProxyDirectoryRecord>, Serializable {
+	private static final long serialVersionUID = -7257128734974058246L;
+	// Verification Constants
     private static final int PUB_KEY_LENGTH = 162; // length of Key.getEncoded()
     private static final int SIG_LENGTH = 128; // Bytes after Base64.decode
     private static final int MIN_NICKNAME_LENGTH = 3;
@@ -36,6 +38,10 @@ abstract class DirectoryRecord implements Comparable<ExitNodeRecord> {
 
     public void checkIn() {
         lastCheckinTime = System.currentTimeMillis();
+    }
+    
+    public void mergeCheckIn(long checkIn) {
+    	lastCheckinTime = Math.max(System.currentTimeMillis(), checkIn);
     }
 
     public boolean checkForErrors(boolean fullCheckInclSignature, XMLHelper xmlOut)
@@ -120,7 +126,7 @@ abstract class DirectoryRecord implements Comparable<ExitNodeRecord> {
     }
 
     @Override
-    public int compareTo(ExitNodeRecord other) {
+    public int compareTo(ProxyDirectoryRecord other) {
         if (this.createdTime > other.createdTime) {
             return -1;
         }

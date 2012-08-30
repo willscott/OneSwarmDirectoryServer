@@ -27,9 +27,9 @@ public class DirectoryRecordHandler extends DefaultHandler {
     public void startElement(String uri, String localName, String qName, Attributes attributes)
             throws SAXException {
         if (qName.equalsIgnoreCase(XMLHelper.EXIT_NODE)) {
-            tempNode = new ExitNodeRecord();
+            tempNode = new ProxyDirectoryRecord();
         } else if (qName.equalsIgnoreCase(XMLHelper.SERVICE)) {
-            tempNode = new ServiceRecord();
+            tempNode = new PortDirectoryRecord();
         }
         errors = false;
     }
@@ -52,16 +52,16 @@ public class DirectoryRecordHandler extends DefaultHandler {
         } else if (qName.equalsIgnoreCase(XMLHelper.NICKNAME)) {
             tempNode.nickname = tempVal;
         } else if (qName.equalsIgnoreCase(XMLHelper.BANDWIDTH)) {
-            if (tempNode instanceof ExitNodeRecord) {
-                ((ExitNodeRecord) tempNode).bandwidth = Integer.parseInt(tempVal);
+            if (tempNode instanceof ProxyDirectoryRecord) {
+                ((ProxyDirectoryRecord) tempNode).bandwidth = Integer.parseInt(tempVal);
             }
         } else if (qName.equalsIgnoreCase(XMLHelper.EXIT_POLICY)) {
-            if (tempNode instanceof ExitNodeRecord) {
-                ((ExitNodeRecord) tempNode).exitPolicy = tempVal;
+            if (tempNode instanceof ProxyDirectoryRecord) {
+                ((ProxyDirectoryRecord) tempNode).exitPolicy = tempVal;
             }
         } else if (qName.equalsIgnoreCase(XMLHelper.VERSION)) {
-            if (tempNode instanceof ExitNodeRecord) {
-                ((ExitNodeRecord) tempNode).version = tempVal;
+            if (tempNode instanceof ProxyDirectoryRecord) {
+                ((ProxyDirectoryRecord) tempNode).version = tempVal;
             }
         } else if (qName.equalsIgnoreCase(XMLHelper.SIGNATURE)) {
             try {

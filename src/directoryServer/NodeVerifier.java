@@ -25,14 +25,14 @@ public class NodeVerifier implements Callable<Boolean> {
     @Override
     public Boolean call() throws Exception {
         // Make sure the node will accept some connections.
-        if (record instanceof ExitNodeRecord) {
-            ExitNodeRecord exitNode = (ExitNodeRecord) record;
+        if (record instanceof ProxyDirectoryRecord) {
+            ProxyDirectoryRecord exitNode = (ProxyDirectoryRecord) record;
             if (!exitNode.exitPolicy.contains("allow")) {
                 return false;
             }
             // TODO (willscott) See if the exit node can be reached.
             return true;
-        } else if (record instanceof ServiceRecord) {
+        } else if (record instanceof PortDirectoryRecord) {
             // TODO (willscott) See if the OS Website can be reached
             return true;
         } else {

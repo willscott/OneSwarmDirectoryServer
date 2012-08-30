@@ -1,6 +1,5 @@
 package directoryServer;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -8,9 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
 import java.math.BigInteger;
-import java.security.KeyStore.ProtectionParameter;
 import java.security.cert.Certificate;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -58,6 +55,8 @@ import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
  * @author nick
  */
 public class OSDirectoryServer implements Runnable {
+	public static OSDirectoryServer instance;
+	
 	private static final String KEY_STORE = "key.store";
     private static final String PARAM_ACTION = "action";
     private static final String CHECK_IN = "checkin";
@@ -68,13 +67,14 @@ public class OSDirectoryServer implements Runnable {
     // since last update
     private static final String LAST_UPDATE = "lastUpdate";
 
-    final Server jettyServer = new Server();
+    public final Server jettyServer = new Server();
     DirectoryDB db;
 
     private OSDirectoryServer(int port, Signature authority) throws ParserConfigurationException, SAXException,
             IOException {
+    	OSDirectoryServer.instance = this;
 
-        db = new DirectoryDB();
+        db = new DirectoryDB(authority);
         new Thread(new ServiceConsole(db)).start();
 
         /* Define thread pool for the web server. */
@@ -143,8 +143,11 @@ public class OSDirectoryServer implements Runnable {
                     xmlOut.writeDigest();
                     xmlOut.close();
                     byte[] response = responseStream.toByteArray();
-                    authority.update(response);
-                    byte[] sig = authority.sign();
+                    byte[] sig;
+                    synchronized(authority) {
+                    	authority.update(response);
+                    	sig = authority.sign();
+                    }
                     int pos = Utils.lastIndexOf(response, XMLHelper.DIGEST_PLACEHOLDER.getBytes());
                     int remainder = pos + XMLHelper.DIGEST_PLACEHOLDER.getBytes().length;
                     request.setHandled(true);
@@ -168,6 +171,9 @@ public class OSDirectoryServer implements Runnable {
             try {
                 List<DirectoryRecord> newNodes = new LinkedList<DirectoryRecord>();
                 XMLHelper.parse(xmlIn, new DirectoryRecordHandler(newNodes, xmlOut));
+                if (newNodes.size() > 1) {
+                	throw new Exception("Invalid Registration.");
+                }
                 for (DirectoryRecord node : newNodes) {
                     xmlOut.startElement(node.type());
                     xmlOut.writeTag(XMLHelper.SERVICE_ID, node.serviceId + "");

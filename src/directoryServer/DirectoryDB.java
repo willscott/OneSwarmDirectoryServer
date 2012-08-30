@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.security.Signature;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -21,18 +22,22 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.SAXException;
 
+import directoryServer.RecordDelta.TYPE;
+
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
 public class DirectoryDB {
     private static final String DATABASE_FILE = "knownExitNodes.xml";
+    private static final String COORDINATION_FILE = "knownPartners.txt";
     // The max age that a ExitNode registration may have before it is deleted.
     private static final int MAX_AGE = 60 * 60 * 1000;
     private static final int GRACE_PERIOD = 60 * 1000;
     private final Map<Long, DirectoryRecord> registeredKeys;
     private PriorityQueue<DirectoryRecord> readableExitNodeList;
     private final PriorityQueue<DirectoryRecord> mutableExitNodeList;
+    private final ServiceCoordinator syncService;
 
-    public DirectoryDB() throws ParserConfigurationException, SAXException, IOException {
+    public DirectoryDB(Signature authority) throws ParserConfigurationException, SAXException, IOException {
         mutableExitNodeList = new PriorityQueue<DirectoryRecord>();
         registeredKeys = new HashMap<Long, DirectoryRecord>();
         try {
@@ -47,6 +52,13 @@ public class DirectoryDB {
             readFromFile(dbFile);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
+        }
+        
+       	File coordinationFile = new File(COORDINATION_FILE);
+       	if (coordinationFile.exists()) {
+       		this.syncService = new ServiceCoordinator(this, coordinationFile, authority);
+        } else {
+        	this.syncService = null;
         }
 
         Thread dbClean = new Thread(new DBCleaner());
@@ -83,6 +95,9 @@ public class DirectoryDB {
                 }
                 xmlOut.writeStatus(XMLHelper.STATUS_SUCCESS, "Registration Suceeded.");
             }
+            if (this.syncService != null) {
+            	this.syncService.add(node, false);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -115,6 +130,9 @@ public class DirectoryDB {
             xmlOut.writeStatus(XMLHelper.ERROR_INVALID_SIGNATURE,
                     "Public Key or Signature does not match existing registration.");
             return;
+        }
+        if (this.syncService != null) {
+        	this.syncService.add(node, true);
         }
         xmlOut.writeStatus(XMLHelper.STATUS_SUCCESS, "Checkin Suceeded.");
     }
@@ -202,4 +220,22 @@ public class DirectoryDB {
             }, 0, MAX_AGE / 4);
         }
     }
+
+	public void merge(RecordDelta d) {
+		if (d.type == TYPE.UPDATE) {
+			registeredKeys.get(d.serviceId).mergeCheckIn(d.lastCheckinTime);
+		} else {
+			DirectoryRecord r = d.record;
+            synchronized (registeredKeys) {
+            	if (registeredKeys.containsKey(d.serviceId)) {
+            		remove(registeredKeys.get(d.serviceId));
+            	}
+                registeredKeys.put(d.serviceId, r);
+            }
+
+            synchronized (mutableExitNodeList) {
+                mutableExitNodeList.add(r);
+            }
+		}
+	}
 }
