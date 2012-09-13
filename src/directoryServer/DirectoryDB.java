@@ -37,7 +37,7 @@ public class DirectoryDB {
     private final PriorityQueue<DirectoryRecord> mutableExitNodeList;
     private final ServiceCoordinator syncService;
 
-    public DirectoryDB(Signature authority) throws ParserConfigurationException, SAXException, IOException {
+    public DirectoryDB(Signature authority, Signature verifier) throws ParserConfigurationException, SAXException, IOException {
         mutableExitNodeList = new PriorityQueue<DirectoryRecord>();
         registeredKeys = new HashMap<Long, DirectoryRecord>();
         try {
@@ -56,7 +56,7 @@ public class DirectoryDB {
         
        	File coordinationFile = new File(COORDINATION_FILE);
        	if (coordinationFile.exists()) {
-       		this.syncService = new ServiceCoordinator(this, coordinationFile, authority);
+       		this.syncService = new ServiceCoordinator(this, coordinationFile, authority, verifier);
         } else {
         	this.syncService = null;
         }
@@ -181,7 +181,7 @@ public class DirectoryDB {
         XMLHelper xmlOut = new XMLHelper(System.out);
         FileInputStream in = new FileInputStream(file);
         List<DirectoryRecord> savedNodes = new LinkedList<DirectoryRecord>();
-        XMLHelper.parse(in, new DirectoryRecordHandler(savedNodes, xmlOut));
+        XMLHelper.parse(in, new DirectoryRecordHandler(savedNodes, xmlOut), null);
         for (DirectoryRecord node : savedNodes) {
             add(node, xmlOut);
         }

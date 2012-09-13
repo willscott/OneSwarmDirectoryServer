@@ -88,7 +88,8 @@ class ServiceConsole implements Runnable {
                         FileInputStream file = new FileInputStream(args[1]);
                         XMLHelper xmlOut = new XMLHelper(System.out);
                         List<DirectoryRecord> newNodes = new LinkedList<DirectoryRecord>();
-                        XMLHelper.parse(file, new DirectoryRecordHandler(newNodes, xmlOut));
+                        XMLHelper.validateDigest = false;
+                        XMLHelper.parse(file, new DirectoryRecordHandler(newNodes, xmlOut), null);
                         xmlOut.close();
                         for (DirectoryRecord node : newNodes) {
                             db.add(node, new XMLHelper(System.out));

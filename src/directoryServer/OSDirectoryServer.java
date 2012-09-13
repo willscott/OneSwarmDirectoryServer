@@ -45,6 +45,7 @@ import org.mortbay.thread.QueuedThreadPool;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import edu.washington.cs.oneswarm.f2f.xml.Utils;
 import edu.washington.cs.oneswarm.f2f.xml.XMLHelper;
 
 /**
@@ -71,11 +72,12 @@ public class OSDirectoryServer implements Runnable {
     public final Server jettyServer = new Server();
     DirectoryDB db;
 
-    private OSDirectoryServer(int port, Signature authority) throws ParserConfigurationException, SAXException,
+    private OSDirectoryServer(int port, Signature authority, Signature verifier) throws ParserConfigurationException, SAXException,
             IOException {
     	OSDirectoryServer.instance = this;
+    	XMLHelper.validateDigest = false;
 
-        db = new DirectoryDB(authority);
+        db = new DirectoryDB(authority, verifier);
         new Thread(new ServiceConsole(db)).start();
 
         /* Define thread pool for the web server. */
@@ -171,7 +173,7 @@ public class OSDirectoryServer implements Runnable {
                 throws SAXException {
             try {
                 List<DirectoryRecord> newNodes = new LinkedList<DirectoryRecord>();
-                XMLHelper.parse(xmlIn, new DirectoryRecordHandler(newNodes, xmlOut));
+                XMLHelper.parse(xmlIn, new DirectoryRecordHandler(newNodes, xmlOut), null);
                 if (newNodes.size() > 1) {
                 	throw new Exception("Invalid Registration.");
                 }
@@ -251,9 +253,10 @@ public class OSDirectoryServer implements Runnable {
             PrivateKey privateKey = ((KeyStore.PrivateKeyEntry) store.getEntry("signingkey", new PasswordProtection(new char[] {}))).getPrivateKey();
             Signature me = java.security.Signature.getInstance("SHA1withRSA");
             me.initSign(privateKey);
-            me.initVerify(store.getCertificate("signingcert"));
+            Signature you = java.security.Signature.getInstance("SHA1withRSA");
+            you.initVerify(store.getCertificate("signingcert"));
             
-            Thread directoryServer = new Thread(new OSDirectoryServer(port, me));
+            Thread directoryServer = new Thread(new OSDirectoryServer(port, me, you));
             directoryServer.setName("Exit Node Directory Web Server");
             directoryServer.start();
         } catch (Exception e) {

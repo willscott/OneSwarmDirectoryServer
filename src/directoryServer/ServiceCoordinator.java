@@ -34,14 +34,16 @@ import org.mortbay.jetty.Request;
 public class ServiceCoordinator {
 	private final DirectoryDB db;
 	private final Signature authority;
+	private final Signature verifier;
 	private final File partnerFile;
 	private final List<URL> partners;
 	private ExecutorService executor;
 	private static final String PATH = "coord";
 	
-	public ServiceCoordinator(DirectoryDB db, File partners, Signature authority) {
+	public ServiceCoordinator(DirectoryDB db, File partners, Signature authority, Signature verifier) {
 		this.db = db;
 		this.authority = authority;
+		this.verifier = verifier;
 		this.partnerFile = partners;
 		this.partners = new ArrayList<URL>();
 		
@@ -89,9 +91,9 @@ public class ServiceCoordinator {
             		byte[] pb = Base64.decode(payload);
             		String digest = request.getParameter("d");
             		byte[] db = Base64.decode(digest);
-            		synchronized(this.state.authority) {
-            			this.state.authority.update(pb);
-            			if (!this.state.authority.verify(db)) {
+            		synchronized(this.state.verifier) {
+            			this.state.verifier.update(pb);
+            			if (!this.state.verifier.verify(db)) {
             				return;
             			}
             		}
